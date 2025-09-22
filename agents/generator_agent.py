@@ -23,6 +23,6 @@ def initialize_generator_agent():
 
   agent = Agent(
     model = model,
-    instructions = full_prompt
+    instructions = full_prompt,
   )
   return agent
