@@ -1,8 +1,7 @@
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.models.google import GoogleModel
 from pydantic_ai.providers.google import GoogleProvider
-from pydantic import Field, field_validator, BaseModel
-from typing import Optional, Literal
+from pydantic import Field, BaseModel
 import os
 from utils import load_system_prompt
 from dotenv import load_dotenv
