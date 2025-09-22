@@ -1,9 +1,11 @@
 import streamlit as st
 from agents.orchestrator_agent import initialize_orchestrator_agent
+from agents.summarizer_agent import initialize_summarizer_agent
 
 def initialize_session_state():
   st.session_state["messages"] = []
   st.session_state.orchestrator_agent = initialize_orchestrator_agent()
+  st.session_state.summarizer_agent = initialize_summarizer_agent()
 
 # Callback functions described here
 def chat_input_callback():

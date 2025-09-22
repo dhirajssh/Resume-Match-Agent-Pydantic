@@ -1,4 +1,4 @@
-from pydantic_ai import Agent
+from pydantic_ai import Agent, RunContext
 from pydantic_ai.models.google import GoogleModel
 from pydantic_ai.providers.google import GoogleProvider
 from pydantic import Field, field_validator, BaseModel
@@ -9,6 +9,9 @@ from dotenv import load_dotenv
 from bs4 import BeautifulSoup
 import requests
 
+class Link(BaseModel):
+  url: str = Field(description="url if provided by the user")
+
 def initialize_summarizer_agent():
   load_dotenv()
   api_key = os.getenv("GOOGLE_API_KEY")
@@ -16,11 +19,12 @@ def initialize_summarizer_agent():
   model = GoogleModel("gemini-2.5-pro", provider=provider)
   agent = Agent(
     model = model,
-    instructions = load_system_prompt("summarizer.md")
+    instructions = load_system_prompt("summarizer.md"),
+    deps_type = Link,
   )
 
   @agent.tool
-  def scrape_job_url(url: str):
+  def scrape_job_url(ctx: RunContext):
     """
     Fetches a URL and returns cleaned text suitable for LLM consumption.
 
@@ -32,7 +36,7 @@ def initialize_summarizer_agent():
       "Accept-Language": "en-US,en;q=0.9",
     }
     try:
-      response = requests.get(url, headers=headers, timeout=8)
+      response = requests.get(ctx.deps.url, headers=headers, timeout=8)
       response.raise_for_status()  # Raise an exception for bad status codes
       html = response.text
     except requests.exceptions.RequestException as e:
@@ -53,6 +57,6 @@ def initialize_summarizer_agent():
       if len(cleaned) > 4000:
           cleaned = cleaned[: 4000 - 1] + "\n\n[TRUNCATED]"
 
-      return f"URL: {url}\nTitle: {title}\n\n{cleaned}"
+      return f"URL: {ctx.deps.url}\nTitle: {title}\n\n{cleaned}"
     except Exception as e:
       return f"ERROR: parsing HTML: {e}"
