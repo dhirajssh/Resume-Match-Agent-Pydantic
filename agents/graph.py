@@ -3,7 +3,7 @@ from typing import Literal, Optional
 from dataclasses import dataclass
 from pydantic_graph import BaseNode, End, Graph, GraphRunContext
 import streamlit as st
-from pydantic_ai.messages import UserPromptPart
+from pydantic_ai.messages import UserPromptPart, TextPart
 from agents.summarizer_agent import Link
 
 class GraphState(BaseModel):
@@ -81,11 +81,17 @@ class GeneratorAgent(BaseNode[GraphState, None, str]):
     Based on the provided job summary, please fulfill the user's request. Draw from the user's resume to tailor the response.
     """
     ctx.state.generator_messages.append(UserPromptPart(content=combined_prompt))
-    result = st.session_state.generator_agent.run_sync(
-      user_prompt = combined_prompt,
-      message_history = ctx.state.generator_messages,
-    )
-    ctx.state.generator_messages.append(result)
-    return End(result.output)
+    try:
+      result = st.session_state.generator_agent.run_sync(
+        user_prompt = combined_prompt,
+        message_history = ctx.state.generator_messages,
+      )
+      ctx.state.generator_messages.extend(result.messages)
+      return End(result.output)
+    except Exception as e:
+      error_message = f"An error occurred in GeneratorAgent: {e}"
+      st.session_state.error_message = error_message
+      ctx.state.generator_messages.append(TextPart(content=error_message))
+      raise
   
 graph = Graph(nodes=[OrchestratorAgent, SummarizerAgent, GeneratorAgent])
