@@ -38,7 +38,7 @@ class OrchestratorAgent(BaseNode[GraphState]):
         user_prompt = st.session_state["user_input"],
         message_history = ctx.state.orchestrator_messages
       )
-      ctx.state.orchestrator_messages.append(result)
+      ctx.state.orchestrator_messages.extend(result.messages)
       ctx.state.agent = result.output.agent
       ctx.state.link = result.output.link
       ctx.state.message = result.output.message
