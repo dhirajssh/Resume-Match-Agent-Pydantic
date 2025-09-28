@@ -3,7 +3,7 @@ from typing import Literal, Optional
 from dataclasses import dataclass
 from pydantic_graph import BaseNode, End, Graph, GraphRunContext
 import streamlit as st
-from pydantic_ai.messages import UserPromptPart, TextPart
+from pydantic_ai.messages import UserPromptPart, TextPart, ModelResponse, ModelRequest
 from agents.summarizer_agent import Link
 import logging
 
@@ -32,50 +32,84 @@ class GraphState(BaseModel):
 class OrchestratorAgent(BaseNode[GraphState]):
 
   def run(self, ctx: GraphRunContext[GraphState]) -> "SummarizerAgent" | "GeneratorAgent":
-    ctx.state.orchestrator_messages.append(UserPromptPart(content=f"{st.session_state["user_input"]}"))
-    try:
-      result = st.session_state.orchestrator_agent.run_sync(
-        user_prompt = st.session_state["user_input"],
-        message_history = ctx.state.orchestrator_messages
-      )
-      ctx.state.orchestrator_messages.extend(result.messages)
-      ctx.state.agent = result.output.agent
-      ctx.state.link = result.output.link
-      ctx.state.message = result.output.message
-      if ctx.state.agent == "summarizer_agent":
-        return SummarizerAgent()
-      else:
-        return GeneratorAgent()
-    except Exception as e:
-      error_message = f"An error occurred in OrchestratorAgent: {e}"
-      logging.exception(error_message)
-      st.session_state.error_message = error_message
-      ctx.state.orchestrator_messages.append(TextPart(content=error_message))
-      raise
+    ctx.state.orchestrator_messages.append(ModelRequest(
+      parts=UserPromptPart(content=f"{st.session_state["user_input"]}")
+    ))
+    with st.status("Orchestrator Agent Thinking", expanded=True) as status:
+      try:
+        result = st.session_state.orchestrator_agent.run_sync(
+          user_prompt = st.session_state["user_input"],
+          message_history = ctx.state.orchestrator_messages
+        )
+        formatted_string = f"""
+        #### 🎯 Orchestrator Decision
+        **Route:** `{result.output.agent}`\n
+
+        **Link:** {result.output.link}\n
+        **Message:** {result.output.message}\n
+        """
+        ctx.state.orchestrator_messages.append(ModelResponse(
+          parts=[
+            TextPart(content=formatted_string)
+          ]
+        ))
+        st.markdown(formatted_string)
+        ctx.state.agent = result.output.agent
+        ctx.state.link = result.output.link
+        ctx.state.message = result.output.message
+        status.update(label="✅ Orchestrator decision", state="complete")
+        if ctx.state.agent == "summarizer_agent":
+          return SummarizerAgent()
+        else:
+          return GeneratorAgent()
+      except Exception as e:
+        error_message = f"An error occurred in OrchestratorAgent: {e}"
+        logging.exception(error_message)
+        st.session_state.error_message = error_message
+        ctx.state.orchestrator_messages.append(
+          ModelResponse(parts=[TextPart(content=error_message)])
+        )
+        st.markdown(error_message)
+        status.update(label="❌ Failed Orchestrator Agent", state="error")
+        raise
 
     
 @dataclass
 class SummarizerAgent(BaseNode[GraphState]):
 
   def run(self, ctx: GraphRunContext[GraphState]) -> "GeneratorAgent":
-    ctx.state.summarizer_messages.append(UserPromptPart(content=f"{ctx.state.link}"))
-    agent_link = Link(url=ctx.state.link)
-    try:
-      result = st.session_state.summarizer_agent.run_sync(
-        user_prompt = ctx.state.link,
-        message_history = ctx.state.summarizer_messages,
-        deps = agent_link,
+    ctx.state.summarizer_messages.append(
+      ModelRequest(
+        parts=[UserPromptPart(content=f"{ctx.state.link}")]
       )
-      ctx.state.summarizer_messages.extend(result.messages)
-      ctx.state.job_summary = result.output
-      print(result.output)
-      return GeneratorAgent()
-    except Exception as e:
-      error_message = f"An error occurred in SummarizerAgent: {e}"
-      logging.exception(error_message)
-      st.session_state.error_message = error_message
-      ctx.state.summarizer_messages.append(TextPart(content=error_message))
-      raise
+    )
+    agent_link = Link(url=ctx.state.link)
+    with st.status("Generating Job Summary", expanded=True) as status:
+      try:
+        result = st.session_state.summarizer_agent.run_sync(
+          user_prompt = ctx.state.link,
+          message_history = ctx.state.summarizer_messages,
+          deps = agent_link,
+        )
+        ctx.state.summarizer_messages.append(
+          ModelResponse(
+            parts=[TextPart(content=result.output)]
+          )
+        )
+        ctx.state.job_summary = result.output
+        st.markdown(result.output)
+        status.update(label="✅ Job Summary", state="complete")
+        return GeneratorAgent()
+      except Exception as e:
+        error_message = f"An error occurred in SummarizerAgent: {e}"
+        logging.exception(error_message)
+        st.session_state.error_message = error_message
+        ctx.state.summarizer_messages.append(
+          ModelResponse(parts=[TextPart(content=error_message)])
+        )
+        st.markdown(error_message)
+        status.update(label="❌ Failed Summarizer Agent", state="error")
+        raise
   
 @dataclass
 class GeneratorAgent(BaseNode[GraphState, None, str]):
@@ -96,19 +130,25 @@ class GeneratorAgent(BaseNode[GraphState, None, str]):
 
     Based on the provided job summary, please fulfill the user's request. Draw from the user's resume to tailor the response.
     """
-    ctx.state.generator_messages.append(UserPromptPart(content=combined_prompt))
-    try:
-      result = st.session_state.generator_agent.run_sync(
-        user_prompt = combined_prompt,
-        message_history = ctx.state.generator_messages,
-      )
-      ctx.state.generator_messages.extend(result.messages)
-      return End(result.output)
-    except Exception as e:
-      error_message = f"An error occurred in GeneratorAgent: {e}"
-      logging.exception(error_message)
-      st.session_state.error_message = error_message
-      ctx.state.generator_messages.append(TextPart(content=error_message))
-      raise
+    ctx.state.generator_messages.append(
+      ModelRequest(parts=[UserPromptPart(content=combined_prompt)])
+    )
+    with st.status("Generating Answer", expanded=True) as status:
+      try:
+        result = st.session_state.generator_agent.run_sync(
+          user_prompt = combined_prompt,
+          message_history = ctx.state.generator_messages,
+        )
+        ctx.state.generator_messages.extend(result.messages)
+        st.markdown(result.output)
+        status.update(label="✅ Answer Generated", state="complete")
+        return End(result.output)
+      except Exception as e:
+        error_message = f"An error occurred in GeneratorAgent: {e}"
+        logging.exception(error_message)
+        st.session_state.error_message = error_message
+        ctx.state.generator_messages.append(TextPart(content=error_message))
+        status.update(label="❌ Failed Generator Agent", state="error")
+        raise
   
 graph = Graph(nodes=[OrchestratorAgent, SummarizerAgent, GeneratorAgent])
