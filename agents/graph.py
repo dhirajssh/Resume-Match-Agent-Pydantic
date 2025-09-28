@@ -5,6 +5,7 @@ from pydantic_graph import BaseNode, End, Graph, GraphRunContext
 import streamlit as st
 from pydantic_ai.messages import UserPromptPart, TextPart
 from agents.summarizer_agent import Link
+import logging
 
 class GraphState(BaseModel):
   agent: Literal["summarizer_agent", "generator_agent"] = Field(
@@ -24,7 +25,7 @@ class GraphState(BaseModel):
   orchestrator_messages: list = Field(default_factory = list)
   summarizer_messages: list = Field(default_factory = list)
   generator_messages: list = Field(default_factory = list)
-  job_summary: str = Field(default=None)
+  job_summary: Optional[str] = Field(default=None)
 
   
 @dataclass
@@ -32,34 +33,49 @@ class OrchestratorAgent(BaseNode[GraphState]):
 
   def run(self, ctx: GraphRunContext[GraphState]) -> "SummarizerAgent" | "GeneratorAgent":
     ctx.state.orchestrator_messages.append(UserPromptPart(content=f"{st.session_state["user_input"]}"))
-    result = st.session_state.orchestrator_agent.run_sync(
-      user_prompt = st.session_state["user_input"],
-      message_history = ctx.state.orchestrator_messages
-    )
-    ctx.state.orchestrator_messages.append(result)
-    ctx.state.agent = result.output.agent
-    ctx.state.link = result.output.link
-    ctx.state.message = result.output.message
-    if ctx.state.agent == "summarizer_agent":
-      return SummarizerAgent()
-    else:
-      return GeneratorAgent()
+    try:
+      result = st.session_state.orchestrator_agent.run_sync(
+        user_prompt = st.session_state["user_input"],
+        message_history = ctx.state.orchestrator_messages
+      )
+      ctx.state.orchestrator_messages.append(result)
+      ctx.state.agent = result.output.agent
+      ctx.state.link = result.output.link
+      ctx.state.message = result.output.message
+      if ctx.state.agent == "summarizer_agent":
+        return SummarizerAgent()
+      else:
+        return GeneratorAgent()
+    except Exception as e:
+      error_message = f"An error occurred in OrchestratorAgent: {e}"
+      logging.exception(error_message)
+      st.session_state.error_message = error_message
+      ctx.state.orchestrator_messages.append(TextPart(content=error_message))
+      raise
+
     
 @dataclass
 class SummarizerAgent(BaseNode[GraphState]):
 
-  def run(self, ctx: GraphRunContext[GraphState]):
+  def run(self, ctx: GraphRunContext[GraphState]) -> "GeneratorAgent":
     ctx.state.summarizer_messages.append(UserPromptPart(content=f"{ctx.state.link}"))
     agent_link = Link(url=ctx.state.link)
-    result = st.session_state.summarizer_agent.run_sync(
-      user_prompt = ctx.state.link,
-      message_history = ctx.state.summarizer_messages,
-      deps = agent_link,
-    )
-    ctx.state.summarizer_messages.append(result)
-    ctx.state.job_summary = result.output
-    print(result.output)
-    return GeneratorAgent()
+    try:
+      result = st.session_state.summarizer_agent.run_sync(
+        user_prompt = ctx.state.link,
+        message_history = ctx.state.summarizer_messages,
+        deps = agent_link,
+      )
+      ctx.state.summarizer_messages.extend(result.messages)
+      ctx.state.job_summary = result.output
+      print(result.output)
+      return GeneratorAgent()
+    except Exception as e:
+      error_message = f"An error occurred in SummarizerAgent: {e}"
+      logging.exception(error_message)
+      st.session_state.error_message = error_message
+      ctx.state.summarizer_messages.append(TextPart(content=error_message))
+      raise
   
 @dataclass
 class GeneratorAgent(BaseNode[GraphState, None, str]):
@@ -90,6 +106,7 @@ class GeneratorAgent(BaseNode[GraphState, None, str]):
       return End(result.output)
     except Exception as e:
       error_message = f"An error occurred in GeneratorAgent: {e}"
+      logging.exception(error_message)
       st.session_state.error_message = error_message
       ctx.state.generator_messages.append(TextPart(content=error_message))
       raise
