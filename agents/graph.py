@@ -1,3 +1,4 @@
+from __future__ import annotations
 from pydantic import BaseModel, Field
 from typing import Literal, Optional
 from dataclasses import dataclass
@@ -8,8 +9,8 @@ from agents.summarizer_agent import Link
 import logging
 
 class GraphState(BaseModel):
-  agent: Literal["summarizer_agent", "generator_agent"] = Field(
-    ...,
+  agent: Optional[Literal["summarizer_agent", "generator_agent"]] = Field(
+    default="generator_agent",
     description="""
     Specifies which agent should handle the request.
     The orchestrator agent decides which agent gets the message.
@@ -21,7 +22,7 @@ class GraphState(BaseModel):
   )
   link: Optional[str] = Field(default = None)
   message: Optional[str] = Field(default = None)
-  count: int = Field(default = 0)
+  count: Optional[int] = Field(default = 0)
   orchestrator_messages: list = Field(default_factory = list)
   summarizer_messages: list = Field(default_factory = list)
   generator_messages: list = Field(default_factory = list)
@@ -31,13 +32,13 @@ class GraphState(BaseModel):
 @dataclass
 class OrchestratorAgent(BaseNode[GraphState]):
 
-  def run(self, ctx: GraphRunContext[GraphState]) -> "SummarizerAgent" | "GeneratorAgent":
+  async def run(self, ctx: GraphRunContext[GraphState]) -> SummarizerAgent | GeneratorAgent:
     ctx.state.orchestrator_messages.append(ModelRequest(
-      parts=UserPromptPart(content=f"{st.session_state["user_input"]}")
+      parts=[UserPromptPart(content=f"{st.session_state["user_input"]}")]
     ))
     with st.status("Orchestrator Agent Thinking", expanded=True) as status:
       try:
-        result = st.session_state.orchestrator_agent.run_sync(
+        result = await st.session_state.orchestrator_agent.run(
           user_prompt = st.session_state["user_input"],
           message_history = ctx.state.orchestrator_messages
         )
@@ -77,7 +78,7 @@ class OrchestratorAgent(BaseNode[GraphState]):
 @dataclass
 class SummarizerAgent(BaseNode[GraphState]):
 
-  def run(self, ctx: GraphRunContext[GraphState]) -> "GeneratorAgent":
+  async def run(self, ctx: GraphRunContext[GraphState]) -> GeneratorAgent:
     ctx.state.summarizer_messages.append(
       ModelRequest(
         parts=[UserPromptPart(content=f"{ctx.state.link}")]
@@ -86,7 +87,7 @@ class SummarizerAgent(BaseNode[GraphState]):
     agent_link = Link(url=ctx.state.link)
     with st.status("Generating Job Summary", expanded=True) as status:
       try:
-        result = st.session_state.summarizer_agent.run_sync(
+        result = await st.session_state.summarizer_agent.run(
           user_prompt = ctx.state.link,
           message_history = ctx.state.summarizer_messages,
           deps = agent_link,
@@ -114,7 +115,7 @@ class SummarizerAgent(BaseNode[GraphState]):
 @dataclass
 class GeneratorAgent(BaseNode[GraphState, None, str]):
 
-  def run(self, ctx: GraphRunContext[GraphState]):
+  async def run(self, ctx: GraphRunContext[GraphState]) -> End[str]:
 
     # Create the markdown string using an f-string for clarity
     combined_prompt = f"""
@@ -135,7 +136,7 @@ class GeneratorAgent(BaseNode[GraphState, None, str]):
     )
     with st.status("Generating Answer", expanded=True) as status:
       try:
-        result = st.session_state.generator_agent.run_sync(
+        result = await st.session_state.generator_agent.run(
           user_prompt = combined_prompt,
           message_history = ctx.state.generator_messages,
         )
