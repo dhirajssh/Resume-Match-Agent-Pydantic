@@ -59,3 +59,4 @@ def initialize_summarizer_agent():
       return f"URL: {ctx.deps.url}\nTitle: {title}\n\n{cleaned}"
     except Exception as e:
       return f"ERROR: parsing HTML: {e}"
+  return agent
