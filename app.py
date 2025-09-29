@@ -4,6 +4,7 @@ from agents.summarizer_agent import initialize_summarizer_agent
 from agents.generator_agent import initialize_generator_agent
 from agents.feedback_agent import initialize_feedback_agent
 from pydantic_ai.messages import ModelRequest, ModelResponse, UserPromptPart, TextPart
+from agents.graph import graph, OrchestratorAgent, GraphState
 
 def initialize_session_state():
   st.session_state["messages"] = []
@@ -29,10 +30,11 @@ def chat_input_callback():
   with st.chat_message("assistant"):
     with st.status("Generating Summary...", expanded=True) as status:
       try:
-        result = st.session_state.orchestrator_agent.run_sync(
-          user_prompt = st.session_state["user_input"],
-          message_history = st.session_state["messages"],
-        )
+        state = GraphState()
+        state.generator_messages = []
+        state.orchestrator_messages = []
+        state.summarizer_messages = []
+        result = graph.run_sync(start_node=OrchestratorAgent(), state=state)
         print(result.output)
         formatted_string = f"""
         #### 🎯 Orchestrator Decision
