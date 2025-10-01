@@ -22,8 +22,8 @@ def initialize_summarizer_agent():
     deps_type = Link,
   )
 
-  @agent.tool
-  def scrape_job_url(ctx: RunContext):
+  @agent.tool_plain
+  def scrape_job_url(url:str):
     """
     Fetches a URL and returns cleaned text suitable for LLM consumption.
 
@@ -31,13 +31,19 @@ def initialize_summarizer_agent():
       url: The full URL of the job posting or page to fetch.
     """
     headers = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-      "Accept-Language": "en-US,en;q=0.9",
-    }
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Referer": "https://www.google.com",
+    "DNT": "1",  # Do Not Track
+    "Upgrade-Insecure-Requests": "1",
+    "Cache-Control": "no-cache",
+  }
     try:
-      response = requests.get(ctx.deps.url, headers=headers, timeout=8)
+      # print(url)
+      response = requests.get(url, headers=headers, timeout=8)
       response.raise_for_status()  # Raise an exception for bad status codes
       html = response.text
+      print(html[:2000])
     except requests.exceptions.RequestException as e:
       return f"Error fetching url: {e}"
     
@@ -53,10 +59,10 @@ def initialize_summarizer_agent():
       lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
       cleaned = "\n".join(lines)
 
+      print(cleaned)
       if len(cleaned) > 4000:
           cleaned = cleaned[: 4000 - 1] + "\n\n[TRUNCATED]"
-
-      return f"URL: {ctx.deps.url}\nTitle: {title}\n\n{cleaned}"
+      return f"URL: {url}\nTitle: {title}\n\n{cleaned}"
     except Exception as e:
       return f"ERROR: parsing HTML: {e}"
   return agent
