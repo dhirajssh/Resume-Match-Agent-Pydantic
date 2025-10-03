@@ -13,9 +13,6 @@ class Link(BaseModel):
 
 def initialize_summarizer_agent():
   load_dotenv()
-  api_key = os.getenv("GOOGLE_API_KEY")
-  provider = GoogleProvider(api_key=api_key)
-  model = GoogleModel("gemini-2.5-pro", provider=provider)
   agent = Agent(
     'openai:gpt-4o',
     instructions = load_system_prompt("summarizer.md"),
