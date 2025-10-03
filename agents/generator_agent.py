@@ -22,7 +22,7 @@ def initialize_generator_agent():
   full_prompt = f"{prompt}\n\n---\n\n{resume}"
 
   agent = Agent(
-    model = model,
+    'openai:gpt-4o',
     instructions = full_prompt,
   )
   return agent
