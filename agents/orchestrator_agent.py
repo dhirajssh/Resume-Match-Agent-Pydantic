@@ -67,7 +67,7 @@ def initialize_orchestrator_agent():
   provider = GoogleProvider(api_key=api_key)
   model = GoogleModel("gemini-2.5-pro", provider=provider)
   agent = Agent(
-    model=model,
+    'openai:gpt-4o',
     instructions=load_system_prompt("orchestrator.md"),
     output_retries=5,
     output_type=OrchestratorResponse
