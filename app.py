@@ -8,6 +8,7 @@ from agents.graph import graph, OrchestratorAgent, GraphState
 
 def initialize_session_state():
   st.session_state["messages"] = []
+  st.session_state.resume = ""
   st.session_state.orchestrator_agent = initialize_orchestrator_agent()
   st.session_state.summarizer_agent = initialize_summarizer_agent()
   st.session_state.generator_agent = initialize_generator_agent()
