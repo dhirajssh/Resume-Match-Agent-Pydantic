@@ -84,13 +84,11 @@ class SummarizerAgent(BaseNode[GraphState]):
         parts=[UserPromptPart(content=f"{ctx.state.link}")]
       )
     )
-    agent_link = Link(url=ctx.state.link)
     with st.status("Generating Job Summary", expanded=True) as status:
       try:
         result = await st.session_state.summarizer_agent.run(
           user_prompt = ctx.state.link,
           message_history = ctx.state.summarizer_messages,
-          deps = agent_link,
         )
         ctx.state.summarizer_messages.append(
           ModelResponse(
@@ -140,7 +138,9 @@ class GeneratorAgent(BaseNode[GraphState, None, str]):
           user_prompt = combined_prompt,
           message_history = ctx.state.generator_messages,
         )
-        ctx.state.generator_messages.extend(result.messages)
+        ctx.state.generator_messages.append(
+          ModelResponse(parts=[TextPart(content=result.output)])
+        )
         st.markdown(result.output)
         status.update(label="✅ Answer Generated", state="complete")
         return End(result.output)
