@@ -17,7 +17,7 @@ def initialize_summarizer_agent():
   provider = GoogleProvider(api_key=api_key)
   model = GoogleModel("gemini-2.5-pro", provider=provider)
   agent = Agent(
-    model = model,
+    'openai:gpt-4o',
     instructions = load_system_prompt("summarizer.md"),
     deps_type = Link,
   )
@@ -25,44 +25,37 @@ def initialize_summarizer_agent():
   @agent.tool_plain
   def scrape_job_url(url:str):
     """
-    Fetches a URL and returns cleaned text suitable for LLM consumption.
+    Fetches a URL using Playwright (headless browser) and returns cleaned text suitable for LLM consumption.
 
     Args:
       url: The full URL of the job posting or page to fetch.
     """
-    headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-    "Accept-Language": "en-US,en;q=0.9",
-    "Referer": "https://www.google.com",
-    "DNT": "1",  # Do Not Track
-    "Upgrade-Insecure-Requests": "1",
-    "Cache-Control": "no-cache",
-  }
+    from playwright.sync_api import sync_playwright
+
     try:
-      # print(url)
-      response = requests.get(url, headers=headers, timeout=8)
-      response.raise_for_status()  # Raise an exception for bad status codes
-      html = response.text
-      print(html[:2000])
-    except requests.exceptions.RequestException as e:
-      return f"Error fetching url: {e}"
-    
+      with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+        page.goto(url, timeout=20000)
+        page.wait_for_timeout(3000)
+        html = page.content()
+        browser.close()
+    except Exception as e:
+      return f"Error fetching url with Playwright: {e}"
     try:
       soup = BeautifulSoup(html, "html.parser")
       title = (soup.title.string if soup.title and soup.title.string else "").strip()
-      main = soup
-      for tag in main(["script", "style", "noscript", "iframe"]):
+      for tag in soup(["script", "style", "noscript", "iframe"]):
         tag.decompose()
 
-      text = main.get_text(separator="\n", strip=True)
-      # collapse and clean lines
+      text = soup.get_text(separator="\n", strip=True)
       lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
       cleaned = "\n".join(lines)
-
-      print(cleaned)
       if len(cleaned) > 4000:
-          cleaned = cleaned[: 4000 - 1] + "\n\n[TRUNCATED]"
+        cleaned = cleaned[:4000 - 1] + "\n\n[TRUNCATED]"
+
       return f"URL: {url}\nTitle: {title}\n\n{cleaned}"
     except Exception as e:
-      return f"ERROR: parsing HTML: {e}"
+      return f"ERROR: parsing HTML after Playwright fetch: {e}"
+  
   return agent
