@@ -1,6 +1,6 @@
 import os
 
-def load_system_prompt(filename: str)->str:
+def load_system_prompt(filename: str, flag:bool = True)->str:
   """
   Read and return the system prompt stored in a markdown file.
 
@@ -11,8 +11,10 @@ def load_system_prompt(filename: str)->str:
     The file contents as a string. If the file cannot be read, returns a brief error message string.
   """
   base_dir = os.path.dirname(__file__)
-  prompts_dir = os.path.join(base_dir, "prompts")
-  path = os.path.join(prompts_dir, filename)
+  if flag:
+    prompts_dir = os.path.join(base_dir, "prompts")
+    path = os.path.join(prompts_dir, filename)
+  else: path = filename
 
   try:
     with open(path, "r", encoding="utf-8") as f:
