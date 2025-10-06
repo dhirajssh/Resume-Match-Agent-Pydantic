@@ -8,12 +8,9 @@ import streamlit as st
 
 def initialize_feedback_agent():
   load_dotenv()
-  api_key = os.getenv("GOOGLE_API_KEY")
-  provider = GoogleProvider(api_key=api_key)
-  model = GoogleModel("gemini-2.5-pro", provider=provider)
   resume_path = os.path.join(os.path.dirname(__file__), "..", "resume.md")
   if os.path.exists(resume_path):
-    resume = load_system_prompt("resume.md")
+    resume = load_system_prompt("resume.md", flag=False)
     st.session_state.resume = resume
   else:
     resume = st.session_state.resume
@@ -21,7 +18,7 @@ def initialize_feedback_agent():
   full_prompt = f"{prompt}\n\n---\n\n{resume}"
 
   agent = Agent(
-    model = model,
+    'openai:gpt-4o',
     instructions = full_prompt,
   )
   return agent
