@@ -26,6 +26,7 @@ class GraphState(BaseModel):
   orchestrator_messages: list = Field(default_factory = list)
   summarizer_messages: list = Field(default_factory = list)
   generator_messages: list = Field(default_factory = list)
+  feedback_messages: list = Field(default_factory=list)
   job_summary: Optional[str] = Field(default=None)
 
   
@@ -111,24 +112,44 @@ class SummarizerAgent(BaseNode[GraphState]):
         raise
   
 @dataclass
-class GeneratorAgent(BaseNode[GraphState, None, str]):
+class GeneratorAgent(BaseNode[GraphState]):
+  feedback: str | None = None
 
-  async def run(self, ctx: GraphRunContext[GraphState]) -> End[str]:
+  async def run(self, ctx: GraphRunContext[GraphState]) -> FeedbackAgent:
 
     # Create the markdown string using an f-string for clarity
-    combined_prompt = f"""
-    **CONTEXT: JOB SUMMARY**
-    ---
-    {ctx.state.job_summary}
-    ---
+    combined_prompt = ""
+    if ctx.state.count == 0:
+      combined_prompt = f"""
+      **CONTEXT: JOB SUMMARY**
+      ---
+      {ctx.state.job_summary}
+      ---
 
-    **USER REQUEST**
-    ---
-    {ctx.state.message}
-    ---
+      **USER REQUEST**
+      ---
+      {ctx.state.message}
+      ---
 
-    Based on the provided job summary, please fulfill the user's request. Draw from the user's resume to tailor the response.
-    """
+      Based on the provided job summary, please fulfill the user's request. Draw from the user's resume to tailor the response.
+      """
+    else:
+      combined_prompt = f"""
+      **CONTEXT: JOB SUMMARY**
+      ---
+      {ctx.state.job_summary}
+      ---
+
+      **USER REQUEST**
+      ---
+      {ctx.state.message}
+      ---
+
+      **FEEDBACK**
+      {self.feedback}
+
+      Based on the provided job summary, please fulfill the user's request. Draw from the user's resume to tailor the response.
+      """
     ctx.state.generator_messages.append(
       ModelRequest(parts=[UserPromptPart(content=combined_prompt)])
     )
@@ -143,13 +164,68 @@ class GeneratorAgent(BaseNode[GraphState, None, str]):
         )
         st.markdown(result.output)
         status.update(label="✅ Answer Generated", state="complete")
-        return End(result.output)
+        return FeedbackAgent(result.output)
       except Exception as e:
         error_message = f"An error occurred in GeneratorAgent: {e}"
         logging.exception(error_message)
         st.session_state.error_message = error_message
-        ctx.state.generator_messages.append(TextPart(content=error_message))
+        ctx.state.generator_messages.append(
+          ModelResponse(parts=[TextPart(content=error_message)])
+        )
         status.update(label="❌ Failed Generator Agent", state="error")
         raise
+
+@dataclass
+class FeedbackAgent(BaseNode[GraphState, None, str]):
+  message: str | None = None
+
+  async def run(self, ctx: GraphRunContext[GraphState]) -> End[str] | GeneratorAgent:
+    combined_prompt = f"""
+    **CONTEXT: JOB SUMMARY**
+    --
+    {ctx.state.job_summary}
+    --
+
+    **USER REQUEST**
+    --
+    {ctx.state.message}
+    --
+
+    **ANSWER GENERATED**
+    --
+    {self.message}
+    --
+    Give feedback on the answer generated and points to improve on and how to make the answer generated better.
+    """
+    ctx.state.feedback_messages.append(
+      ModelRequest(parts=[UserPromptPart(content=combined_prompt)])
+    )
+
+    with st.status("Generating Feedback", expanded=True) as status:
+      try:
+        result = await st.session_state.feedback_agent.run(
+          user_prompt = combined_prompt,
+          message_history = ctx.state.feedback_messages,
+        )
+        ctx.state.feedback_messages.append(
+          ModelResponse(parts=[TextPart(content=result.output)])
+        )
+
+        st.markdown(result.output)
+        status.update(label="✅ Feedback generated", state="complete")
+        ctx.state.count += 1
+        if ctx.state.count >=2:
+          return End(self.message)
+        return GeneratorAgent(result.output)
+      except Exception as e:
+        error_message = f"An error occurred in FeedbackAgent: {e}"
+        logging.exception(error_message)
+        st.session_state.error_message = error_message
+        ctx.state.feedback_messages.append(
+          ModelResponse(parts=TextPart(content=error_message))
+        )
+        status.update(label="❌ Failed Feedback Agent", state="error")
+        raise
+
   
-graph = Graph(nodes=[OrchestratorAgent, SummarizerAgent, GeneratorAgent])
+graph = Graph(nodes=[OrchestratorAgent, SummarizerAgent, GeneratorAgent, FeedbackAgent])
