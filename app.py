@@ -14,6 +14,13 @@ def initialize_session_state():
   st.session_state.generator_agent = initialize_generator_agent()
   st.session_state.feedback_agent = initialize_feedback_agent()
   st.session_state["display"] = []
+  state = GraphState()
+  state.generator_messages = []
+  state.orchestrator_messages = []
+  state.summarizer_messages = []
+  state.count = 0
+  state.feedback_messages = []
+  st.session_state.graph_state = state
 
 # Callback functions described here
 def chat_input_callback():
@@ -31,30 +38,27 @@ def chat_input_callback():
   with st.chat_message("assistant"):
     with st.status("Generating Summary...", expanded=True) as status:
       try:
-        state = GraphState()
-        state.generator_messages = []
-        state.orchestrator_messages = []
-        state.summarizer_messages = []
-        result = graph.run_sync(start_node=OrchestratorAgent(), state=state)
-        print(result.output)
-        formatted_string = f"""
-        #### 🎯 Orchestrator Decision
-        **Route:** `{result.output.agent}`\n
+        st.session_state.graph_state.count = 0
+        result = graph.run_sync(start_node=OrchestratorAgent(), state=st.session_state.graph_state)
+        # print(result.output)
+        # formatted_string = f"""
+        # #### 🎯 Orchestrator Decision
+        # **Route:** `{result.output.agent}`\n
 
-        **Link:** {result.output.link}\n
-        **Message:** {result.output.message}\n
-        """
-        st.session_state["display"].append(
-          {"role": "assistant", "content": formatted_string}
-        )
-        st.session_state["messages"].append(
-          ModelResponse(
-            parts=[
-              TextPart(content=formatted_string)
-            ]
-          )
-        )
-        st.markdown(formatted_string)
+        # **Link:** {result.output.link}\n
+        # **Message:** {result.output.message}\n
+        # """
+        # st.session_state["display"].append(
+        #   {"role": "assistant", "content": formatted_string}
+        # )
+        # st.session_state["messages"].append(
+        #   ModelResponse(
+        #     parts=[
+        #       TextPart(content=formatted_string)
+        #     ]
+        #   )
+        # )
+        st.markdown(result.output)
         status.update(label="✅ Summary complete", state="complete")
       except Exception as e:
         error_msg = f"❌ Error: {e}"
