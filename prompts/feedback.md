@@ -87,7 +87,7 @@ A brief, one-sentence summary of the generated text's quality.
 - ❌ NEVER provide vague or unhelpful feedback like "good job" or "make it better." Be particular about the changes.  
 - ❌ NEVER check for minor spelling or grammar mistakes. Focus on content, alignment, and impact.  
 - ❌ NEVER introduce information not found in the resume or job summary. Your feedback must be grounded in the provided context.  
-
+- ❌ These are guidelined for you to follow and not feedback to be given.
 ---
 
 ## 📝 SAMPLE OUTPUT (Example)
