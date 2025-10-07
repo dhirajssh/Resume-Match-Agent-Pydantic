@@ -63,14 +63,39 @@ if "messages" not in st.session_state:
   initialize_session_state()
 
 def display_messages():
-  for msg in st.session_state["display"]:
-    if msg["role"] == "assistant":
-      with st.chat_message(msg["role"]):
-        with st.status("✅ Summary complete", expanded=False, state="complete"):
-          st.markdown(msg["content"])
+  n = len(st.session_state.display)
+  i = 0
+  while i<n:
+    msg = st.session_state.display[i]
+    if msg["role"] != "user":
+      with st.chat_message("assistant"):
+        with st.status("Thinking", expanded=False):
+          while msg["role"]!="F" and msg["iteration"]!=2:
+            msg = st.session_state.display[i]
+            if msg["role"] == "O":
+              with st.status("✅ Orchestrator Decision", expanded=False, state="complete"):
+                st.markdown(msg["content"])
+            elif msg["role"]=="S":
+              with st.status("✅ Job Summary", expanded=False, state="complete"):
+                st.markdown(msg["content"])
+            elif msg["role"]=="G":
+              with st.status(f"✅ Answer Generated {msg["iteration"]}", expanded=False, state="complete"):
+                st.markdown(msg["content"])
+            elif msg["role"]=="F":
+              with st.status(f"✅ Feedback Generated {msg["iteration"]}", expanded=False, state="complete"):
+                st.markdown(msg["content"])
+            i+=1
+          if msg["role"]=="F":
+            with st.status(f"✅ Feedback Generated {msg["iteration"]}", expanded=False, state="complete"):
+              st.markdown(msg["content"])
+        temp = i-1
+        generator_msg = st.session_state.display[temp]
+        st.markdown(generator_msg["content"])
+        
     else:
       with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
+    i+=1
 
 
 st.chat_input("Paste a job URL", key="user_input", on_submit=chat_input_callback)

@@ -173,7 +173,7 @@ class GeneratorAgent(BaseNode[GraphState]):
     ctx.state.generator_messages.append(
       ModelRequest(parts=[UserPromptPart(content=combined_prompt)])
     )
-    with st.status("Generating Answer", expanded=False) as status:
+    with st.status(f"Generating Answer {ctx.state.count}", expanded=False) as status:
       try:
         result = await st.session_state.generator_agent.run(
           user_prompt = combined_prompt,
