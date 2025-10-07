@@ -70,7 +70,7 @@ def display_messages():
     if msg["role"] != "user":
       with st.chat_message("assistant"):
         with st.status("Thinking", expanded=False):
-          while msg["role"]!="F" and msg["iteration"]!=2:
+          while msg["role"]!="F" and msg.get("iteration", 0) != 2:
             msg = st.session_state.display[i]
             if msg["role"] == "O":
               with st.status("✅ Orchestrator Decision", expanded=False, state="complete"):
