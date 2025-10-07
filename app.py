@@ -37,39 +37,23 @@ def chat_input_callback():
   display_messages()
   with st.chat_message("assistant"):
     with st.status("Generating Summary...", expanded=True) as status:
-      try:
-        st.session_state.graph_state.count = 0
-        result = graph.run_sync(start_node=OrchestratorAgent(), state=st.session_state.graph_state)
-        # print(result.output)
-        # formatted_string = f"""
-        # #### 🎯 Orchestrator Decision
-        # **Route:** `{result.output.agent}`\n
-
-        # **Link:** {result.output.link}\n
-        # **Message:** {result.output.message}\n
-        # """
-        # st.session_state["display"].append(
-        #   {"role": "assistant", "content": formatted_string}
-        # )
-        # st.session_state["messages"].append(
-        #   ModelResponse(
-        #     parts=[
-        #       TextPart(content=formatted_string)
-        #     ]
-        #   )
-        # )
-        st.markdown(result.output)
-        status.update(label="✅ Summary complete", state="complete")
-      except Exception as e:
-        error_msg = f"❌ Error: {e}"
-        st.session_state["messages"].append(
+      with st.status("Thinking", expanded=False) as status:
+        try:
+          st.session_state.graph_state.count = 0
+          result = graph.run_sync(start_node=OrchestratorAgent(), state=st.session_state.graph_state)
+          st.markdown(result.output)
+          status.update(state="complete")
+        except Exception as e:
+          error_msg = f"❌ Error: {e}"
+          st.session_state["messages"].append(
+              {"role": "assistant", "content": error_msg}
+          )
+          st.error(error_msg)
+          st.session_state["messages"].append(
             {"role": "assistant", "content": error_msg}
-        )
-        st.error(error_msg)
-        st.session_state["messages"].append(
-          {"role": "assistant", "content": error_msg}
-        )
-        status.update(label="❌ Failed to generate summary", state="error")
+          )
+          status.update(label="❌ Failed to generate summary", state="error")
+      status.update(label="✅ Summary complete", state="complete")
 
 
 if "messages" not in st.session_state:
