@@ -37,13 +37,15 @@ def chat_input_callback():
   display_messages()
   with st.chat_message("assistant"):
     with st.status("Generating Summary...", expanded=True) as status:
-      with st.status("Thinking", expanded=False) as status:
-        try:
+      try:
+        with st.status("Thinking", expanded=False) as status:
           st.session_state.graph_state.count = 0
           result = graph.run_sync(start_node=OrchestratorAgent(), state=st.session_state.graph_state)
-          st.markdown(result.output)
-          status.update(state="complete")
-        except Exception as e:
+          status.update(status="complete")
+        st.markdown(result.output)
+        status.update(label="✅ Summary complete", state="complete")
+      except Exception as e:
+        with st.status("Thinking", expanded=False) as status:
           error_msg = f"❌ Error: {e}"
           st.session_state["messages"].append(
               {"role": "assistant", "content": error_msg}
@@ -52,8 +54,9 @@ def chat_input_callback():
           st.session_state["messages"].append(
             {"role": "assistant", "content": error_msg}
           )
-          status.update(label="❌ Failed to generate summary", state="error")
-      status.update(label="✅ Summary complete", state="complete")
+          status.update(label="❌ Thinking", state="error")
+        st.markdown(error_msg)
+        status.update(label="❌ Failed to generate summary", state="error")
 
 
 if "messages" not in st.session_state:
