@@ -24,8 +24,8 @@ def initialize_session_state():
 
 # Callback functions described here
 def chat_input_callback():
-  st.session_state["display"].append(
-    {"role": "user", "content": st.session_state["user_input"]}
+  st.session_state.display.append(
+    {"role": "user", "content": st.session_state["user_input"], "thinking": False}
   )
   st.session_state["messages"].append(
     ModelRequest(
