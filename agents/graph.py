@@ -55,6 +55,11 @@ class OrchestratorAgent(BaseNode[GraphState]):
             TextPart(content=formatted_string)
           ]
         ))
+        st.session_state.display.append({
+          "role": "O",
+          "content": formatted_string,
+          "Thinking": True
+        })
         st.markdown(formatted_string)
         ctx.state.agent = result.output.agent
         ctx.state.link = result.output.link
@@ -71,6 +76,11 @@ class OrchestratorAgent(BaseNode[GraphState]):
         ctx.state.orchestrator_messages.append(
           ModelResponse(parts=[TextPart(content=error_message)])
         )
+        st.session_state.display.append({
+          "role": "O",
+          "content": error_message,
+          "Thinking": True
+        })
         st.markdown(error_message)
         status.update(label="❌ Failed Orchestrator Agent", state="error")
         raise
@@ -98,6 +108,11 @@ class SummarizerAgent(BaseNode[GraphState]):
         )
         ctx.state.job_summary = result.output
         st.markdown(result.output)
+        st.session_state.display.append({
+          "role": "S",
+          "content": result.output,
+          "Thinking": True
+        })
         status.update(label="✅ Job Summary", state="complete")
         return GeneratorAgent()
       except Exception as e:
@@ -107,6 +122,11 @@ class SummarizerAgent(BaseNode[GraphState]):
         ctx.state.summarizer_messages.append(
           ModelResponse(parts=[TextPart(content=error_message)])
         )
+        st.session_state.display.append({
+          "role": "S",
+          "content": error_message,
+          "Thinking": True
+        })
         st.markdown(error_message)
         status.update(label="❌ Failed Summarizer Agent", state="error")
         raise
@@ -162,6 +182,12 @@ class GeneratorAgent(BaseNode[GraphState]):
         ctx.state.generator_messages.append(
           ModelResponse(parts=[TextPart(content=result.output)])
         )
+        st.session_state.display.append({
+          "role": "G",
+          "content": result.output,
+          "Thinking": True,
+          "iteration": ctx.state.count
+        })
         st.markdown(result.output)
         status.update(label="✅ Answer Generated", state="complete")
         return FeedbackAgent(result.output)
@@ -172,6 +198,12 @@ class GeneratorAgent(BaseNode[GraphState]):
         ctx.state.generator_messages.append(
           ModelResponse(parts=[TextPart(content=error_message)])
         )
+        st.session_state.display.append({
+          "role": "G",
+          "content": error_message,
+          "Thinking": True,
+          "iteration": ctx.state.count
+        })
         status.update(label="❌ Failed Generator Agent", state="error")
         raise
 
@@ -210,7 +242,12 @@ class FeedbackAgent(BaseNode[GraphState, None, str]):
         ctx.state.feedback_messages.append(
           ModelResponse(parts=[TextPart(content=result.output)])
         )
-
+        st.session_state.display.append({
+          "role": "F",
+          "content": result.output,
+          "Thinking": True,
+          "iteration": ctx.state.count
+        })
         st.markdown(result.output)
         status.update(label="✅ Feedback generated", state="complete")
         ctx.state.count += 1
@@ -224,6 +261,12 @@ class FeedbackAgent(BaseNode[GraphState, None, str]):
         ctx.state.feedback_messages.append(
           ModelResponse(parts=TextPart(content=error_message))
         )
+        st.session_state.display.append({
+          "role": "F",
+          "content": error_message,
+          "Thinking": True,
+          "iteration": ctx.state.count
+        })
         status.update(label="❌ Failed Feedback Agent", state="error")
         raise
 
