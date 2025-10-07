@@ -37,7 +37,7 @@ class OrchestratorAgent(BaseNode[GraphState]):
     ctx.state.orchestrator_messages.append(ModelRequest(
       parts=[UserPromptPart(content=f"{st.session_state["user_input"]}")]
     ))
-    with st.status("Orchestrator Agent Thinking", expanded=True) as status:
+    with st.status("Orchestrator Agent Thinking", expanded=False) as status:
       try:
         result = await st.session_state.orchestrator_agent.run(
           user_prompt = st.session_state["user_input"],
@@ -85,7 +85,7 @@ class SummarizerAgent(BaseNode[GraphState]):
         parts=[UserPromptPart(content=f"{ctx.state.link}")]
       )
     )
-    with st.status("Generating Job Summary", expanded=True) as status:
+    with st.status("Generating Job Summary", expanded=False) as status:
       try:
         result = await st.session_state.summarizer_agent.run(
           user_prompt = ctx.state.link,
@@ -153,7 +153,7 @@ class GeneratorAgent(BaseNode[GraphState]):
     ctx.state.generator_messages.append(
       ModelRequest(parts=[UserPromptPart(content=combined_prompt)])
     )
-    with st.status("Generating Answer", expanded=True) as status:
+    with st.status("Generating Answer", expanded=False) as status:
       try:
         result = await st.session_state.generator_agent.run(
           user_prompt = combined_prompt,
@@ -201,7 +201,7 @@ class FeedbackAgent(BaseNode[GraphState, None, str]):
       ModelRequest(parts=[UserPromptPart(content=combined_prompt)])
     )
 
-    with st.status("Generating Feedback", expanded=True) as status:
+    with st.status("Generating Feedback", expanded=False) as status:
       try:
         result = await st.session_state.feedback_agent.run(
           user_prompt = combined_prompt,
