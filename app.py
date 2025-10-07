@@ -13,7 +13,7 @@ def initialize_session_state():
   st.session_state.summarizer_agent = initialize_summarizer_agent()
   st.session_state.generator_agent = initialize_generator_agent()
   st.session_state.feedback_agent = initialize_feedback_agent()
-  st.session_state["display"] = []
+  st.session_state.display = []
   state = GraphState()
   state.generator_messages = []
   state.orchestrator_messages = []
