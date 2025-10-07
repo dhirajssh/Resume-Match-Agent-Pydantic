@@ -41,7 +41,7 @@ def chat_input_callback():
         with st.status("Thinking", expanded=False) as status:
           st.session_state.graph_state.count = 0
           result = graph.run_sync(start_node=OrchestratorAgent(), state=st.session_state.graph_state)
-          status.update(status="complete")
+          status.update(state="complete")
         st.markdown(result.output)
         status.update(label="✅ Summary complete", state="complete")
       except Exception as e:
