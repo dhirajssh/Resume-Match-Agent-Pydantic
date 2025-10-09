@@ -97,5 +97,6 @@ def display_messages():
         st.markdown(msg["content"])
     i+=1
 
-
+with st.sidebar:
+  st.markdown("Resume here")
 st.chat_input("Paste a job URL", key="user_input", on_submit=chat_input_callback)
