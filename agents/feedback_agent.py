@@ -11,7 +11,6 @@ def initialize_feedback_agent():
   resume_path = os.path.join(os.path.dirname(__file__), "..", "resume.md")
   if os.path.exists(resume_path):
     resume = load_system_prompt("resume.md", flag=False)
-    st.session_state.resume = resume
   else:
     resume = st.session_state.resume
   prompt = load_system_prompt("feedback.md")

@@ -3,8 +3,10 @@ from agents.orchestrator_agent import initialize_orchestrator_agent
 from agents.summarizer_agent import initialize_summarizer_agent
 from agents.generator_agent import initialize_generator_agent
 from agents.feedback_agent import initialize_feedback_agent
+from agents.resume_agent import initialize_resume_agent
 from pydantic_ai.messages import ModelRequest, ModelResponse, UserPromptPart, TextPart
 from agents.graph import graph, OrchestratorAgent, GraphState
+from pydantic_ai import BinaryContent
 
 def initialize_session_state():
   st.session_state["messages"] = []
@@ -58,6 +60,59 @@ def chat_input_callback():
         st.markdown(error_msg)
         status.update(label="❌ Failed to generate summary", state="error")
 
+def handle_resume_upload():
+  """Callback to handle uploaded resume conversion."""
+  uploaded_file = st.session_state.get("uploaded_resume")
+  if not uploaded_file:
+    return
+  print("in here, why is this not working")
+  print(uploaded_file.type)
+  try:
+    binary_resume = BinaryContent(
+      data=uploaded_file.read(),
+      media_type=uploaded_file.type,
+    )
+
+    agent = st.session_state.resume_agent
+    result = agent.run_sync([binary_resume])
+    st.session_state.resume = result.output.resume
+    print(result.output.resume)
+    st.success("✅ Resume converted successfully!")
+    st.rerun()
+
+  except Exception as e:
+    st.error(f"❌ Conversion failed: {e}")
+
+# Dialog widgets here
+@st.dialog("Upload Your Resume")
+def resume_dialog():
+  uploaded_file = st.file_uploader("Upload Resume", type=["pdf", "docx"])
+  if uploaded_file:
+    print("in here, why is this not working")
+    print(uploaded_file.type)
+    with st.spinner("Wait for it...", show_time=True):
+      try:
+        binary_resume = BinaryContent(
+          data=uploaded_file.read(),
+          media_type=uploaded_file.type,
+        )
+        print("The api call has been made:")
+        agent = st.session_state.resume_agent
+        result = agent.run_sync([binary_resume])
+        st.session_state.resume = result.output.resume
+        print(result.output.resume)
+        st.success("✅ Resume converted successfully!")
+        st.rerun()
+
+      except Exception as e:
+        st.error(f"❌ Conversion failed: {e}")
+    
+  if st.button("Cancel", width="stretch"):
+    st.rerun()
+
+# Generic Streamlit code
+if "resume_agent" not in st.session_state:
+  st.session_state.resume_agent = initialize_resume_agent()
 
 if "messages" not in st.session_state:
   initialize_session_state()
@@ -98,5 +153,8 @@ def display_messages():
     i+=1
 
 with st.sidebar:
-  st.markdown("Resume here")
+  if st.button("Upload Resume", type="primary", width="stretch"):
+    resume_dialog()
+  if st.session_state.resume:
+    st.markdown(st.session_state.resume)
 st.chat_input("Paste a job URL", key="user_input", on_submit=chat_input_callback)
