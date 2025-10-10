@@ -1,6 +1,4 @@
 from pydantic_ai import Agent
-from pydantic_ai.models.google import GoogleModel
-from pydantic_ai.providers.google import GoogleProvider
 from pydantic import Field, field_validator, BaseModel
 from typing import Optional, Literal
 import os
