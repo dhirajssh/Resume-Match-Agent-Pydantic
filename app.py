@@ -7,14 +7,19 @@ from agents.resume_agent import initialize_resume_agent
 from pydantic_ai.messages import ModelRequest, ModelResponse, UserPromptPart, TextPart
 from agents.graph import graph, OrchestratorAgent, GraphState
 from pydantic_ai import BinaryContent
+from dotenv import load_dotenv
 
-def initialize_session_state():
-  st.session_state["messages"] = []
-  st.session_state.resume = ""
+load_dotenv()
+
+def initialize_agents():
   st.session_state.orchestrator_agent = initialize_orchestrator_agent()
   st.session_state.summarizer_agent = initialize_summarizer_agent()
   st.session_state.generator_agent = initialize_generator_agent()
   st.session_state.feedback_agent = initialize_feedback_agent()
+
+def initialize_session_state():
+  st.session_state["messages"] = []
+  st.session_state.resume = ""
   st.session_state.display = []
   state = GraphState()
   state.generator_messages = []
@@ -23,6 +28,7 @@ def initialize_session_state():
   state.count = 0
   state.feedback_messages = []
   st.session_state.graph_state = state
+  initialize_agents()
 
 # Callback functions described here
 def chat_input_callback():
@@ -65,8 +71,6 @@ def handle_resume_upload():
   uploaded_file = st.session_state.get("uploaded_resume")
   if not uploaded_file:
     return
-  print("in here, why is this not working")
-  print(uploaded_file.type)
   try:
     binary_resume = BinaryContent(
       data=uploaded_file.read(),
@@ -76,7 +80,6 @@ def handle_resume_upload():
     agent = st.session_state.resume_agent
     result = agent.run_sync([binary_resume])
     st.session_state.resume = result.output.resume
-    print(result.output.resume)
     st.success("✅ Resume converted successfully!")
     st.rerun()
 
@@ -88,20 +91,17 @@ def handle_resume_upload():
 def resume_dialog():
   uploaded_file = st.file_uploader("Upload Resume", type=["pdf", "docx"])
   if uploaded_file:
-    print("in here, why is this not working")
-    print(uploaded_file.type)
     with st.spinner("Wait for it...", show_time=True):
       try:
         binary_resume = BinaryContent(
           data=uploaded_file.read(),
           media_type=uploaded_file.type,
         )
-        print("The api call has been made:")
         agent = st.session_state.resume_agent
         result = agent.run_sync([binary_resume])
         st.session_state.resume = result.output.resume
-        print(result.output.resume)
         st.success("✅ Resume converted successfully!")
+        initialize_agents()
         st.rerun()
 
       except Exception as e:
@@ -120,6 +120,7 @@ if "messages" not in st.session_state:
 def display_messages():
   n = len(st.session_state.display)
   i = 0
+  print(st.session_state.display)
   while i<n:
     msg = st.session_state.display[i]
     if msg["role"] != "user":
@@ -140,6 +141,7 @@ def display_messages():
               with st.status(f"✅ Feedback Generated {msg["iteration"]}", expanded=False, state="complete"):
                 st.markdown(msg["content"])
             i+=1
+          msg = st.session_state.display[i]
           if msg["role"]=="F":
             with st.status(f"✅ Feedback Generated {msg["iteration"]}", expanded=False, state="complete"):
               st.markdown(msg["content"])
@@ -157,4 +159,8 @@ with st.sidebar:
     resume_dialog()
   if st.session_state.resume:
     st.markdown(st.session_state.resume)
-st.chat_input("Paste a job URL", key="user_input", on_submit=chat_input_callback)
+
+if st.session_state.resume:
+  st.chat_input("Paste a job URL", key="user_input", on_submit=chat_input_callback)
+else:
+  st.info("📄 Please upload your resume (PDF or DOCX) to get started below:")
